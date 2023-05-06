@@ -8,6 +8,7 @@
 #define CH_ZERO2 1485
 #define US_TO_RADPS 0.02
 #define N_SAMPLES 400
+#define FAILSAFE_TIMEOUT_MS 1000
 
 Adafruit_MPU6050 imu;
 Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
@@ -19,8 +20,10 @@ int ch1v = CH_ZERO1;
 int ch2v = CH_ZERO2;
 double g_zero = 0;
 double heading = 0;
-unsigned long last_time;
+unsigned long last_time_us;
 Servo motor_left, motor_right;
+
+unsigned long last_pulse_ms;
 
 void setup() {
 //    Serial.begin(115200);
@@ -55,7 +58,8 @@ void setup() {
 
     pixels.setPixelColor(0, 255, 0, 255);
     pixels.show();
-    last_time = micros();
+    last_time_us = micros();
+    last_pulse_ms = millis();
 }
 
 
@@ -63,12 +67,15 @@ void loop() {
     sensors_event_t accel, gyro, temp;
     imu.getEvent(&accel, &gyro, &temp);
     double gx = gyro.gyro.x - g_zero;
-    double dt = (last_time - micros()) / 1e6;
+    double dt = (last_time_us - micros()) / 1e6;
     heading += gx * dt;
     double K = 60;
 
     pixels.setPixelColor(0, 127 + heading * 50, 0, 127 - heading * 50);
     pixels.show();
+
+    if (ch1.available() || ch2.available())
+        last_pulse_ms = millis();
 
     ch1v = ch1.getPulse();
     ch2v = ch2.getPulse();
@@ -79,8 +86,13 @@ void loop() {
 
     int correction = (int) (-K * heading);
 
-    motor_left.writeMicroseconds(ch1v - correction);
-    motor_right.writeMicroseconds(ch2v - correction);
+    if (millis() - last_pulse_ms > FAILSAFE_TIMEOUT_MS){
+        motor_left.writeMicroseconds(0);
+        motor_right.writeMicroseconds(0);
+    } else {
+        motor_left.writeMicroseconds(ch1v - correction);
+        motor_right.writeMicroseconds(ch2v - correction);
+    }
 
     delay(1);
     //    Serial.print(gx);
