@@ -67,7 +67,8 @@ void loop() {
     sensors_event_t accel, gyro, temp;
     imu.getEvent(&accel, &gyro, &temp);
     double gx = gyro.gyro.x - g_zero;
-    double dt = (last_time_us - micros()) / 1e6;
+    double dt = (micros() - last_time_us) / 1e6;
+    last_time_us = micros();
     heading += gx * dt;
     double K = 60;
 
@@ -95,8 +96,11 @@ void loop() {
     }
 
     delay(1);
-    //    Serial.print(gx);
-    //    Serial.print('\t');
+//        Serial.print(gx);
+//        Serial.print('\t');
+//        Serial.print(heading);
+//        Serial.print('\t');
+//        Serial.println(correction);
     //    Serial.print(ch1v);
     //    Serial.print('\t');
     //    Serial.print(ch2v);
